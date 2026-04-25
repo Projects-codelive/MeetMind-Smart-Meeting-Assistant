@@ -1,13 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const integrationController = require('../controllers/integration.controller');
+const jwt = require('jsonwebtoken');
 
 const platforms = ['notion', 'slack', 'google', 'jira', 'github', 'salesforce', 'asana', 'gdrive'];
 
 const getUserId = (req) => {
+  const queryUserId = req.query.userId;
+  if (queryUserId) return queryUserId;
+  
   const clerkId = req.headers['x-clerk-user-id'];
-  if (!clerkId) return 'demo-user-001';
-  return clerkId;
+  if (clerkId) return clerkId;
+  
+  const token = req.headers['authorization']?.replace('Bearer ', '');
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key');
+      return decoded.id;
+    } catch (e) {
+      return 'demo-user-001';
+    }
+  }
+  
+  return 'demo-user-001';
 };
 
 router.get('/', async (req, res) => {
@@ -80,7 +95,8 @@ platforms.forEach(platform => {
   router.get(`/${platform}/connect`, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const oauthUrl = integrationController.getOAuthUrl(platform, userId);
+      const userIdParam = req.query.userId || userId;
+      const oauthUrl = integrationController.getOAuthUrl(platform, userIdParam);
       if (!oauthUrl) {
         return res.status(400).json({ error: 'Invalid platform' });
       }

@@ -20,6 +20,7 @@ export default function IntegrationsPage() {
   const searchParams = useSearchParams();
   const [integrations, setIntegrations] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -31,9 +32,24 @@ export default function IntegrationsPage() {
     const connected = searchParams.get('connected');
     const error = searchParams.get('error');
     if (connected || error) {
-      fetchIntegrations();
+      setTimeout(() => {
+        setNotification({
+          type: error ? 'error' : 'success',
+          message: error 
+            ? `Failed to connect ${error}. Please try again.`
+            : `${connected} connected successfully!`
+        });
+        fetchIntegrations();
+      }, 500);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const fetchIntegrations = async () => {
     if (!user) return;
@@ -88,6 +104,12 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-8">
+      {notification && (
+        <div className={`p-4 rounded-lg ${notification.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {notification.message}
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold">Integrations</h1>
         <p className="text-gray-600">Connect your favorite tools</p>

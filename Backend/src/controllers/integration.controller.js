@@ -12,10 +12,10 @@ const OAuthConfigs = {
   slack: {
     authUrl: 'https://slack.com/oauth/v2/authorize',
     tokenUrl: 'https://slack.com/api/oauth.v2.access',
-    scope: 'chat:write,channels:read,users:read',
+    scope: 'chat:write,channels:read,users:read,channels:manage',
     clientId: process.env.SLACK_CLIENT_ID,
     clientSecret: process.env.SLACK_CLIENT_SECRET,
-    redirectUri: `${process.env.FRONTEND_URL}/api/integrations/slack/callback`
+    redirectUri: process.env.SLACK_REDIRECT_URI || `${process.env.FRONTEND_URL}/api/integrations/slack/callback`
   },
   google: {
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -26,12 +26,12 @@ const OAuthConfigs = {
     redirectUri: `${process.env.FRONTEND_URL}/api/integrations/google/callback`
   },
   jira: {
-    authUrl: 'https://auth.atlassian.com/authorize',
-    tokenUrl: 'https://auth.atlassian.com/oauth/token',
-    scope: 'write:jira-work read:jira-admin',
+    authUrl: process.env.JIRA_AUTH_URL || 'https://auth.atlassian.com/authorize',
+    tokenUrl: process.env.JIRA_TOKEN_URL || 'https://auth.atlassian.com/oauth/token',
+    scope: 'write:jira-work read:jira-work read:jira-admin offline_access',
     clientId: process.env.JIRA_CLIENT_ID,
     clientSecret: process.env.JIRA_CLIENT_SECRET,
-    redirectUri: `${process.env.FRONTEND_URL}/api/integrations/jira/callback`
+    redirectUri: process.env.JIRA_REDIRECT_URI || 'http://localhost:5001/api/integrations/jira/callback'
   },
   github: {
     authUrl: 'https://github.com/login/oauth/authorize',
@@ -106,22 +106,42 @@ const exchangeCode = async (platform, code, userId) => {
   const config = OAuthConfigs[platform];
   if (!config) throw new Error('Invalid platform');
 
-  const params = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-    code,
-    redirect_uri: config.redirectUri
-  });
+  let body, headers;
+  
+  if (platform === 'jira') {
+    body = JSON.stringify({
+      grant_type: 'authorization_code',
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code,
+      redirect_uri: config.redirectUri
+    });
+    headers = { 'Content-Type': 'application/json' };
+  } else {
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      code,
+      redirect_uri: config.redirectUri
+    });
+    body = params.toString();
+    headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  }
 
   try {
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
+      headers,
+      body
     });
 
     const tokens = await response.json();
+    
+    if (!tokens.access_token) {
+      console.error('Token exchange failed:', tokens);
+      throw new Error('Failed to exchange code for token');
+    }
     
     await connectIntegration(userId, platform, tokens);
     
