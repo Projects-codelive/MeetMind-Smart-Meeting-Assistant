@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeetMind</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 320px; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .container { display: flex; flex-direction: column; gap: 16px; }
+    .header { display: flex; align-items: center; gap: 8px; }
+    .logo { width: 32px; height: 32px; background: #6366f1; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+    .title { font-size: 18px; font-weight: 600; }
+    .status { padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+    .status.inactive { background: #f3f4f6; color: #6b7280; }
+    .status.active { background: #dcfce7; color: #16a34a; }
+    .status.processing { background: #fef3c7; color: #d97706; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; }
+    .btn-primary { background: #6366f1; color: white; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat { padding: 12px; background: #f3f4f6; border-radius: 8px; text-align: center; }
+    .stat-value { font-size: 24px; font-weight: 600; }
+    .stat-label { font-size: 12px; color: #6b7280; }
+    .meeting-info { padding: 12px; background: #f3f4f6; border-radius: 8px; }
+    .meeting-title { font-weight: 500; margin-bottom: 4px; }
+    .meeting-time { font-size: 12px; color: #6b7280; }
+    .checklist { display: flex; flex-direction: column; gap: 8px; }
+    .checklist-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .check { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .check.done { background: #22c55e; color: white; }
+    .check.pending { background: #e5e7eb; }
+    .check.running { background: #f59e0b; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">M</div>
+      <div class="title">MeetMind</div>
+    </div>
+
+    <div id="state-inactive" class="status inactive">
+      <div class="dot"></div>
+      <span>Not in a meeting</span>
+    </div>
+
+    <div id="state-active" class="status active" style="display: none;">
+      <div class="dot"></div>
+      <span>Recording</span>
+    </div>
+
+    <div id="state-processing" class="status processing" style="display: none;">
+      <div class="dot"></div>
+      <span>Processing...</span>
+    </div>
+
+    <div id="stats" class="stats" style="display: none;">
+      <div class="stat">
+        <div class="stat-value" id="duration">0:00</div>
+        <div class="stat-label">Duration</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="attention">--</div>
+        <div class="stat-label">Attention</div>
+      </div>
+    </div>
+
+    <div id="meeting-info" class="meeting-info" style="display: none;">
+      <div class="meeting-title" id="meeting-title">Weekly Standup</div>
+      <div class="meeting-time" id="meeting-time">Started 10 minutes ago</div>
+    </div>
+
+    <div id="checklist" class="checklist" style="display: none;">
+      <div class="checklist-item">
+        <div class="check done">✓</div>
+        <span>Transcription</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check running">⟳</div>
+        <span>Generating Summary</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check pending"></div>
+        <span>Notion Page</span>
+      </div>
+      <div class="checklist-item">
+        <div class="check pending"></div>
+        <span>Slack Post</span>
+      </div>
+    </div>
+
+    <button id="btn-start" class="btn btn-primary">Start Recording</button>
+    <button id="btn-stop" class="btn btn-danger" style="display: none;">End Meeting</button>
+    <a id="btn-dashboard" href="http://localhost:3000/dashboard" class="btn" style="display: none; text-align: center; background: #f3f4f6; color: #374151;">Open Dashboard</a>
+  </div>
+
+  <script>
+    const state = {
+      meetingId: null,
+      isRecording: false,
+      status: 'inactive',
+      startTime: null,
+    };
+
+    function updateUI() {
+      document.getElementById('state-inactive').style.display = state.status === 'inactive' ? 'flex' : 'none';
+      document.getElementById('state-active').style.display = state.status === 'active' ? 'flex' : 'none';
+      document.getElementById('state-processing').style.display = state.status === 'processing' ? 'flex' : 'none';
+      
+      document.getElementById('stats').style.display = state.status !== 'inactive' ? 'grid' : 'none';
+      document.getElementById('meeting-info').style.display = state.status !== 'inactive' ? 'block' : 'none';
+      document.getElementById('checklist').style.display = state.status === 'processing' ? 'flex' : 'none';
+      
+      document.getElementById('btn-start').style.display = state.status === 'inactive' ? 'block' : 'none';
+      document.getElementById('btn-stop').style.display = state.status === 'active' ? 'block' : 'none';
+      document.getElementById('btn-dashboard').style.display = state.status === 'processing' ? 'block' : 'none';
+    }
+
+    document.getElementById('btn-start').addEventListener('click', async () => {
+      state.status = 'active';
+      state.startTime = Date.now();
+      updateUI();
+      
+      setInterval(() => {
+        if (state.status === 'active' && state.startTime) {
+          const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+          const mins = Math.floor(elapsed / 60);
+          const secs = elapsed % 60;
+          document.getElementById('duration').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+      }, 1000);
+    });
+
+    document.getElementById('btn-stop').addEventListener('click', () => {
+      state.status = 'processing';
+      updateUI();
+      
+      setTimeout(() => {
+        state.status = 'inactive';
+        updateUI();
+      }, 3000);
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
