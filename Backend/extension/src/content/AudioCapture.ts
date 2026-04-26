@@ -98,3 +98,16 @@ class AudioCapture {
 }
 
 export default AudioCapture;
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'START_CAPTURE') {
+    const meetingId = `meeting_${Date.now()}`;
+    audioCapture.startCapture(meetingId);
+    sendResponse({ success: true, meetingId });
+  } else if (message.type === 'STOP_CAPTURE') {
+    audioCapture.stopCapture();
+    sendResponse({ success: true });
+  }
+});
+
+const audioCapture = new AudioCapture(null);
