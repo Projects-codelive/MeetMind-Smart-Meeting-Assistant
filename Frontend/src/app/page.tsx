@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { Mic, Brain, Link2, BarChart3, Calendar, Zap, MessageSquare, Languages, Clock, Users, DollarSign, Shield, Check } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 const features = [
   { icon: Mic, title: 'Live Transcription', description: 'Multi-speaker transcription with speaker diarization' },
@@ -31,6 +34,19 @@ const integrations = [
 ];
 
 export default function Home() {
+  const { isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  if (isLoaded && isSignedIn) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
