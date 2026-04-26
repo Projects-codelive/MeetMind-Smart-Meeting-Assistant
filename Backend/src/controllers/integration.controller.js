@@ -40,6 +40,14 @@ const OAuthConfigs = {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     redirectUri: `${process.env.FRONTEND_URL}/api/integrations/github/callback`
+  },
+  asana: {
+    authUrl: 'https://app.asana.com/-/oauth_authorize',
+    tokenUrl: 'https://app.asana.com/-/oauth_token',
+    scope: 'default',
+    clientId: process.env.ASANA_CLIENT_ID,
+    clientSecret: process.env.ASANA_CLIENT_SECRET,
+    redirectUri: `${process.env.FRONTEND_URL}/api/integrations/asana/callback`
   }
 };
 
