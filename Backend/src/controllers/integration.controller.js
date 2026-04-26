@@ -126,17 +126,33 @@ const exchangeCode = async (platform, code, userId) => {
       redirect_uri: config.redirectUri
     });
     body = params.toString();
-    headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    headers = { 
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    };
   }
 
   try {
+    console.log('Exchanging code for platform:', platform);
+    console.log('Token URL:', config.tokenUrl);
+    console.log('Redirect URI:', config.redirectUri);
+    
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
       headers,
       body
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+
     const tokens = await response.json();
+    console.log('Token response:', tokens);
+    
+    if (tokens.error) {
+      console.error('Token exchange error:', tokens);
+      throw new Error(tokens.error_description || tokens.error);
+    }
     
     if (!tokens.access_token) {
       console.error('Token exchange failed:', tokens);
@@ -179,6 +195,10 @@ const triggerIntegration = async (userId, meetingId, platform) => {
         break;
       case 'asana':
         result = await service.createTasksFromActionItems(meetingId, userId);
+        break;
+      case 'github':
+        const githubService = require('../services/github.service');
+        result = await githubService.createIssuesFromTechnicalTasks(meetingId, userId);
         break;
       default:
         throw new Error('Unsupported platform');
