@@ -23,10 +23,30 @@ document.getElementById('btn-start').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab.id) return;
 
-  chrome.tabs.sendMessage(tab.id, { type: 'START_CAPTURE' }, (response) => {
+  chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id }, (streamId) => {
     if (chrome.runtime.lastError) {
-      console.error('Could not connect to page:', chrome.runtime.lastError.message);
+      console.error('Failed to get streamId:', chrome.runtime.lastError.message);
+      return;
     }
+
+    chrome.runtime.sendMessage({ 
+      type: 'START_RECORDING', 
+      streamId: streamId
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error:', chrome.runtime.lastError.message);
+        return;
+      }
+      
+      if (response?.success) {
+        state.status = 'active';
+        state.meetingId = response.meetingId;
+        state.startTime = Date.now();
+      } else {
+        console.error('Failed to start:', response?.error);
+      }
+      updateUI();
+    });
   });
 
   state.status = 'active';
@@ -44,11 +64,19 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 });
 
 document.getElementById('btn-stop').addEventListener('click', () => {
+  chrome.runtime.sendMessage({ type: 'STOP_RECORDING' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error:', chrome.runtime.lastError.message);
+      return;
+    }
+  });
+
   state.status = 'processing';
   updateUI();
   
   setTimeout(() => {
     state.status = 'inactive';
+    state.meetingId = null;
     updateUI();
   }, 3000);
 });

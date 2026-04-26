@@ -8,7 +8,8 @@ const segmentSchema = new mongoose.Schema({
   endTime: Number,
   confidence: { type: Number, default: 0 },
   language: String,
-  translatedText: String
+  translatedText: String,
+  timestamp: { type: Date, default: Date.now }
 });
 
 const transcriptSchema = new mongoose.Schema({

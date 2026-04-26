@@ -1,5 +1,6 @@
 const { Server } = require('socket.io');
 const { connectRedis } = require('../config/redis');
+const { verifyToken } = require('@clerk/clerk-sdk-node');
 const transcriptionService = require('../services/transcription.service');
 const attentionService = require('../services/attention.service');
 const aiService = require('../services/ai.service');
@@ -7,6 +8,18 @@ const Meeting = require('../models/Meeting.model');
 
 let io;
 let redis;
+
+const connectedUsers = new Map();
+
+async function verifyClerkToken(token) {
+  try {
+    const result = await verifyToken(token);
+    return result;
+  } catch (error) {
+    console.error('Token verification failed:', error.message);
+    return null;
+  }
+}
 
 const initializeSocket = (server) => {
   io = new Server(server, {
@@ -18,12 +31,49 @@ const initializeSocket = (server) => {
 
   redis = connectRedis();
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    socket.on('meeting:start', async (data) => {
+    let authToken = null;
+    let userId = null;
+
+    socket.on('auth', async (data) => {
       try {
-        const { meetingId, userId, platform, meetingUrl } = data;
+        const { token } = data;
+        
+        if (!token) {
+          socket.emit('error', { code: 'NO_TOKEN', message: 'Authentication token required' });
+          socket.disconnect();
+          return;
+        }
+
+        const verification = await verifyClerkToken(token);
+        
+        if (!verification) {
+          socket.emit('error', { code: 'INVALID_TOKEN', message: 'Invalid or expired authentication token' });
+          socket.disconnect();
+          return;
+        }
+
+        userId = verification.sub;
+        connectedUsers.set(socket.id, { userId, token });
+        console.log(`User authenticated: ${userId}`);
+        
+        socket.emit('auth:success', { userId });
+      } catch (error) {
+        console.error('Auth error:', error.message);
+        socket.emit('error', { code: 'AUTH_ERROR', message: error.message });
+      }
+    });
+
+    socket.on('meeting:start', async (data) => {
+      if (!userId) {
+        socket.emit('error', { code: 'NOT_AUTHENTICATED', message: 'Please authenticate first' });
+        return;
+      }
+      
+      try {
+        const { meetingId, platform, meetingUrl } = data;
         
         socket.join(meetingId);
         
@@ -40,7 +90,40 @@ const initializeSocket = (server) => {
       }
     });
 
+    socket.on('audio:chunk', async (data) => {
+      if (!userId) {
+        socket.emit('error', { code: 'NOT_AUTHENTICATED', message: 'Please authenticate first' });
+        return;
+      }
+      
+      try {
+        const { meetingId, chunk, timestamp, isFinal } = data;
+        
+        const segment = await transcriptionService.processAudioChunk(
+          Buffer.from(chunk, 'base64'),
+          meetingId,
+          userId,
+          timestamp
+        );
+
+        await transcriptionService.saveTranscriptSegment(
+          meetingId,
+          userId,
+          segment
+        );
+
+        io.to(meetingId).emit('transcript:segment', segment);
+      } catch (error) {
+        console.error('Audio Chunk Error:', error);
+      }
+    });
+
     socket.on('meeting:end', async (data) => {
+      if (!userId) {
+        socket.emit('error', { code: 'NOT_AUTHENTICATED', message: 'Please authenticate first' });
+        return;
+      }
+      
       try {
         const { meetingId } = data;
         

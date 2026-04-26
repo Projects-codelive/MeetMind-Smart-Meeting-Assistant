@@ -55,6 +55,7 @@ const saveTranscriptSegment = async (meetingId, userId, segment) => {
       });
     }
     
+    segment.timestamp = new Date();
     transcript.segments.push(segment);
     await transcript.save();
     
