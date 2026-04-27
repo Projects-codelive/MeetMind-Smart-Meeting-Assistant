@@ -1,0 +1,35 @@
+# Font Directory
+
+## Current Setup
+The project uses **Space Grotesk** (Google Fonts) as the heading font, which provides a modern, geometric aesthetic similar to General Sans and Cabinet Grotesk.
+
+## Optional: Upgrade to General Sans
+
+For an even more premium look, you can replace Space Grotesk with General Sans:
+
+### Steps:
+1. Download General Sans from [Fontshare](https://www.fontshare.com/fonts/general-sans)
+2. Place `GeneralSans-Variable.woff2` in this directory
+3. Update `Frontend/src/app/layout.tsx`:
+
+```typescript
+import localFont from 'next/font/local';
+
+const generalSans = localFont({
+  src: './fonts/GeneralSans-Variable.woff2',
+  variable: '--font-heading',
+  display: 'swap',
+  weight: '400 700',
+});
+
+// In the return statement:
+<html lang="en" className={`${generalSans.variable} ${manrope.variable} ${plusJakarta.variable}`}>
+```
+
+### Alternative Premium Fonts:
+- **Cabinet Grotesk** - [Download](https://www.fontshare.com/fonts/cabinet-grotesk)
+- **Clash Display** - [Download](https://www.fontshare.com/fonts/clash-display)
+- **Satoshi** - [Download](https://www.fontshare.com/fonts/satoshi)
+
+All fonts from Fontshare are free for personal and commercial use.
+
